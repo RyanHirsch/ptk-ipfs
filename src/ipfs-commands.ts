@@ -11,15 +11,15 @@ const IPFS_TIMEOUT = 7 * ONE_MINUTE;
 const publicGateway = "https://ipfs.io/ipfs";
 
 export async function getFromPublicNode(cid: string) {
-  logger.debug({ cid }, "Downloading file");
+  logger.debug({ cid }, "Downloading file from public node");
   const resp = await asyncRetry(
-    (_bail, count) => {
+    async (_bail, count) => {
       const url = count % 2 === 0 ? `https://cf-ipfs.com/ipfs/${cid}` : `${publicGateway}/${cid}`;
-      logger.trace(`Starting download ${url}`);
-      return ky.get(url, { timeout: IPFS_TIMEOUT });
+      logger.trace(`Starting public download ${url}`);
+      return await ky.get(url, { timeout: IPFS_TIMEOUT });
     },
     {
-      retries: 6,
+      retries: 8,
     }
   );
   return resp;
@@ -82,7 +82,7 @@ export async function pin(cid: string) {
 export async function check(cid: string, name?: string) {
   logger.debug({ cid, name }, "Checking size in IPFS (cat)");
   const resp = await asyncRetry(
-    () => ky.post(`${ipfsHost}/cat?arg=${cid}`, { timeout: IPFS_TIMEOUT }),
+    async () => await ky.post(`${ipfsHost}/cat?arg=${cid}`, { timeout: IPFS_TIMEOUT }),
     { retries: 5 }
   );
   const arrBuff = await resp.arrayBuffer();
@@ -97,8 +97,8 @@ export async function check(cid: string, name?: string) {
 export async function verifyPin(cid: string, name?: string) {
   logger.debug({ cid, name }, "Checking pinned size in IPFS (ls)");
   const resp = await asyncRetry(
-    () =>
-      ky.post(`${ipfsHost}/ls?arg=${cid}`).json<{
+    async () =>
+      await ky.post(`${ipfsHost}/ls?arg=${cid}`).json<{
         Objects: Array<{
           Hash: string;
           Links: Array<{ Hash: string; Name: string; Size: number; Target: string; Type: number }>;
@@ -141,9 +141,9 @@ export async function unpin(cid: string) {
 export async function download(url: string, name: string) {
   logger.debug({ url, name }, "Downloading file");
   const resp = await asyncRetry(
-    () => {
+    async () => {
       logger.trace(`Starting download ${url}`);
-      return ky.get(url, { timeout: IPFS_TIMEOUT });
+      return await ky.get(url, { timeout: IPFS_TIMEOUT });
     },
     {
       retries: 5,
