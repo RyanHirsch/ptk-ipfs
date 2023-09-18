@@ -2,10 +2,17 @@ import ky from "ky";
 
 import { getId, getPeerCount, getUsed, getVersion } from "./ipfs-commands";
 import { logger } from "./logger";
+import { IPFS_PODCASTING_CLIENT_AGENT } from "./helpers";
 
 const ipfsRequest = "https://IPFSPodcasting.net/Request";
 const ipfsResponse = "https://IPFSPodcasting.net/Response";
-const defaultPayload = { email: "ryan.hirsch@gmail.com", version: "0.6p" };
+const email = process.env.USER_EMAIL;
+if (!email) {
+  throw new Error("USER_EMAIL not set on the environment");
+} else {
+  logger.info(`User identified as ${email}`);
+}
+const defaultPayload = { email, version: "0.6n" };
 
 function toFormString(val: boolean | string | number) {
   if (typeof val === "string") {
@@ -39,7 +46,7 @@ export async function getWork(): Promise<{
   return ky
     .post(ipfsRequest, {
       headers: {
-        "User-Agent": "ptk-ipfs/0.1",
+        "User-Agent": IPFS_PODCASTING_CLIENT_AGENT,
         Accept: "application/json",
       },
       body: Object.entries(body).reduce((f, [k, v]) => {
@@ -85,7 +92,7 @@ export async function sendResponse(response: WorkResponse) {
   };
   const resp = await ky.post(ipfsResponse, {
     headers: {
-      "User-Agent": "ptk-ipfs/0.1",
+      "User-Agent": IPFS_PODCASTING_CLIENT_AGENT,
       Accept: "application/json",
     },
     body: Object.entries(body).reduce((f, [k, v]) => {

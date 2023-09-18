@@ -1,5 +1,4 @@
 import ky, { HTTPError } from "ky";
-import asyncRetry from "async-retry";
 import { getWork, sendResponse } from "./ipfs-podcasting";
 import { ONE_MINUTE } from "./helpers";
 import { check, download, getFromPublicNode, pin, unpin, verifyPin } from "./ipfs-commands";
@@ -12,38 +11,61 @@ enum ErrorCodes {
   PinError = "98",
   GenericError = "1",
 }
-// container node id = 1775
-
 // New Episodes only
-// https://ipfspodcasting.net/Favorite/Future/{FEED ID}/{NODE_ID}
+// https://ipfspodcasting.net/Favorite/Future/{FEED_ID}/{NODE_ID}
 
 // All Episodes
-// https://ipfspodcasting.net/Favorite/All/528/1775
+// https://ipfspodcasting.net/Favorite/All/{FEED_ID}/{NODE_ID}
 
 // https://docs.ipfs.tech/reference/kubo/rpc/
+
+function logAndProxy<T>(message: string) {
+  return (result: T) => {
+    logger.trace(result, message);
+    return result;
+  };
+}
 
 async function getDownloadSize(cid: string) {
   try {
     const resp = await getFromPublicNode(cid);
+    logger.trace({ cid }, "Public Download complete");
+    logger.trace("Getting an arrayBuffer of the public download");
+    // undici sometimes chokes here with the following error - `terminated: other side closed`
     const asArrayBuffer = await resp.arrayBuffer();
+    logger.trace("Got the arrayBuffer");
     return asArrayBuffer.byteLength.toString();
   } catch (err) {
     logger.error(err, "Failed public gateway fetch");
+    if (err instanceof HTTPError) {
+      logger.error({
+        msg: err.message,
+        status: err.response.status,
+        statusText: err.response.statusText,
+      });
+    }
     return "0";
   }
 }
 
-async function compareLsToCat(dirFile: string, name: string) {
+async function getSizes(dirFile: string, name: string) {
   try {
     logger.debug({ dirFile, name }, "Getting all sizes to compare");
     const [fileCid, dirCid] = dirFile.split("/");
     logger.debug({ fileCid, dirCid }, "Destructured hashes");
     const [lsResult, catResult, publicResult] = await Promise.all([
-      verifyPin(dirCid, name),
-      check(fileCid),
-      getDownloadSize(fileCid),
+      verifyPin(dirCid, name).then(logAndProxy("Verify Pin")),
+      check(fileCid).then(logAndProxy("Check Result")),
+      getDownloadSize(fileCid).then(logAndProxy("Public Download")),
     ]);
 
+    if (publicResult === "0") {
+      logger.warn("Public results failed, returning cat and ls results only");
+      return {
+        lsResult: lsResult.length.toString(),
+        catResult: catResult.length,
+      };
+    }
     return {
       publicResult,
       lsResult: lsResult.length.toString(),
@@ -54,20 +76,22 @@ async function compareLsToCat(dirFile: string, name: string) {
   }
 }
 
-async function doTheThing() {
+async function getAndDoWork() {
+  console.log("");
+  console.log("");
+  console.log("");
   logger.info("Getting work");
   const work = await getWork();
   logger.debug(work, "Received work");
   if (/no work/i.test(work.message)) {
-    setTimeout(doTheThing, 5 * ONE_MINUTE);
-
+    setTimeout(getAndDoWork, 5 * ONE_MINUTE);
     return;
   }
 
   if (work.download && work.filename) {
     try {
       const { downloaded, cid, originalSize } = await download(work.download, work.filename);
-      const compareResults = await compareLsToCat(downloaded, work.filename);
+      const compareResults = await getSizes(downloaded, work.filename);
       logger.debug(compareResults, "Full comparison");
       if (compareResults && Object.values(compareResults).every((r) => originalSize === r)) {
         logger.debug("All sizes match");
@@ -93,7 +117,7 @@ async function doTheThing() {
     }
     last = work.download;
     logger.info("Completed download work");
-    setTimeout(doTheThing, 0.5 * ONE_MINUTE);
+    setTimeout(getAndDoWork, 0.5 * ONE_MINUTE);
 
     return;
   }
@@ -105,7 +129,7 @@ async function doTheThing() {
     } catch (err) {
       logger.error(err, "Failed to pin");
       await sendResponse({ error: ErrorCodes.PinError });
-      setTimeout(doTheThing, 0.5 * ONE_MINUTE);
+      setTimeout(getAndDoWork, 0.5 * ONE_MINUTE);
       return;
     }
     try {
@@ -114,11 +138,11 @@ async function doTheThing() {
     } catch (err) {
       logger.error(err, "Failed to determine pin size");
       await sendResponse({ error: ErrorCodes.GenericError });
-      setTimeout(doTheThing, 0.5 * ONE_MINUTE);
+      setTimeout(getAndDoWork, 0.5 * ONE_MINUTE);
       return;
     }
     logger.info("Completed pinning work");
-    setTimeout(doTheThing, 0.5 * ONE_MINUTE);
+    setTimeout(getAndDoWork, 0.5 * ONE_MINUTE);
 
     return;
   }
@@ -133,7 +157,7 @@ async function doTheThing() {
       logger.error(err, "Failed to delete pin");
     }
     logger.info("Completed delete work");
-    setTimeout(doTheThing, 0.5 * ONE_MINUTE);
+    setTimeout(getAndDoWork, 0.5 * ONE_MINUTE);
 
     return;
   }
@@ -142,5 +166,5 @@ async function doTheThing() {
 }
 
 (async function run() {
-  await doTheThing();
+  await getAndDoWork();
 })();

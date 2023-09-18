@@ -1,6 +1,6 @@
 import ky from "ky";
 import asyncRetry from "async-retry";
-import { ONE_MINUTE } from "./helpers";
+import { GENERAL_USER_AGENT, ONE_MINUTE } from "./helpers";
 import { writeFile } from "fs/promises";
 import { logger } from "./logger";
 
@@ -15,8 +15,21 @@ export async function getFromPublicNode(cid: string) {
   const resp = await asyncRetry(
     async (_bail, count) => {
       const url = count % 2 === 0 ? `https://cf-ipfs.com/ipfs/${cid}` : `${publicGateway}/${cid}`;
-      logger.trace(`Starting public download ${url}`);
-      return await ky.get(url, { timeout: IPFS_TIMEOUT });
+      logger.trace({ count }, `Starting public download ${url}`);
+      try {
+        return await ky.get(url, {
+          timeout: IPFS_TIMEOUT,
+          headers: {
+            "User-Agent": GENERAL_USER_AGENT,
+          },
+        });
+      } catch (err) {
+        // retry isn't properly triggering with the native exception being thrown for some reason.
+        // likely due to some of the weird issues around bundled undici versions and node
+        console.error(err && typeof err === "object" && "cause" in err ? err.cause : err);
+        console.error("Manual throw", count);
+        throw new Error("Generic");
+      }
     },
     {
       retries: 8,
@@ -66,7 +79,8 @@ export async function getVersion() {
 
 export async function pin(cid: string) {
   await asyncRetry(
-    async () => {
+    async (_bail, count) => {
+      logger.trace({ count }, "Getting pin results");
       const resp = await ky.post(`${ipfsHost}/pin/add?arg=${cid}`).json<{ Pins: Array<string> }>();
       if (resp.Pins.length !== 1) {
         logger.debug(resp, `unexpected pin results`);
@@ -82,7 +96,10 @@ export async function pin(cid: string) {
 export async function check(cid: string, name?: string) {
   logger.debug({ cid, name }, "Checking size in IPFS (cat)");
   const resp = await asyncRetry(
-    async () => await ky.post(`${ipfsHost}/cat?arg=${cid}`, { timeout: IPFS_TIMEOUT }),
+    async (_bail, count) => {
+      logger.trace({ count }, "local node cat request");
+      return await ky.post(`${ipfsHost}/cat?arg=${cid}`, { timeout: IPFS_TIMEOUT });
+    },
     { retries: 5 }
   );
   const arrBuff = await resp.arrayBuffer();
@@ -90,20 +107,22 @@ export async function check(cid: string, name?: string) {
     logger.debug({ cid, name }, "Name provided, saving to filesystem for debugging");
     await writeFile(`/Users/ryanhirsch/projects/ptk-ipfs/dl/${name}`, Buffer.from(arrBuff));
   }
-  logger.debug(`Got size ${arrBuff.byteLength} for ${cid}`);
+  logger.debug(`cat got size ${arrBuff.byteLength} for ${cid}`);
   return { length: `${arrBuff.byteLength}` };
 }
 
 export async function verifyPin(cid: string, name?: string) {
   logger.debug({ cid, name }, "Checking pinned size in IPFS (ls)");
   const resp = await asyncRetry(
-    async () =>
-      await ky.post(`${ipfsHost}/ls?arg=${cid}`).json<{
+    async (_bail, count) => {
+      logger.trace({ count }, "local node ls request");
+      return await ky.post(`${ipfsHost}/ls?arg=${cid}`).json<{
         Objects: Array<{
           Hash: string;
           Links: Array<{ Hash: string; Name: string; Size: number; Target: string; Type: number }>;
         }>;
-      }>(),
+      }>();
+    },
     { retries: 5 }
   );
   logger.trace(resp, "IPFS LS result");
@@ -141,9 +160,14 @@ export async function unpin(cid: string) {
 export async function download(url: string, name: string) {
   logger.debug({ url, name }, "Downloading file");
   const resp = await asyncRetry(
-    async () => {
-      logger.trace(`Starting download ${url}`);
-      return await ky.get(url, { timeout: IPFS_TIMEOUT });
+    async (_bail, count) => {
+      logger.trace({ count }, `Starting download ${url}`);
+      return await ky.get(url, {
+        timeout: IPFS_TIMEOUT,
+        headers: {
+          "User-Agent": GENERAL_USER_AGENT,
+        },
+      });
     },
     {
       retries: 5,
@@ -164,6 +188,7 @@ export async function download(url: string, name: string) {
     })
     .text();
 
+  // Results is basically NDJSON, so lets split and parse
   const [file, directory] = add
     .split("\n")
     .filter(Boolean)
