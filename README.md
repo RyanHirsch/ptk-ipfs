@@ -1,6 +1,6 @@
 # Podcast Toolkit IPFS Client
 
-Exploration around using the RPC API for controlling an [IPFS Podcasting](https://ipfspodcasting.net) node rather than [the standard client](https://github.com/Cameron-IPFSPodcasting/podcastnode-Python) (Python + CLI) originally developed by
+Exploration around using the [RPC API](https://docs.ipfs.tech/reference/kubo/rpc/) for controlling an [IPFS Podcasting](https://ipfspodcasting.net) node rather than [the standard client](https://github.com/Cameron-IPFSPodcasting/podcastnode-Python) (Python + CLI) originally developed by
 [Cameron](https://github.com/Cameron-IPFSPodcasting)
 
 This code expects to be running on Node v20.7 or higher
