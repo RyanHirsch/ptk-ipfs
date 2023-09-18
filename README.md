@@ -34,3 +34,5 @@ Size mismatches can occur by ANY of the following:
 - Hosts deciding to deliver different data to you for unknown other reasons
 
 Yeah, you're pretty much out of luck when this happens and it limits the ability of this whole thing to work as intended. joy...
+
+If your node an others get "stuck" in this state, ipfspodcasting will attempt to detect the size differences (likely caused by DAI) and make adjustments so that you and others can join in the hosting even though there is a size discrepancy. (see: https://podcastindex.social/@cameron/111088092247741722)
