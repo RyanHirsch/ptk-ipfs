@@ -23,10 +23,12 @@ docker run -it --rm --name ipfs_host \
 
 ## Known Issues
 
-DAI is terrible, and yields different results so the sizes you obtain may not be what ipfspodcasting thinks is proper. When this happens you'll see a "Fail" near your nodes current status in the [management console](https://ipfspodcasting.net/Manage/Node)
+DAI is terrible, and yields different results so the sizes you obtain may not be what existing nodes have reported and what ipfspodcasting thinks is proper. When this happens you'll see a "Fail" near your node's current status in the [management console](https://ipfspodcasting.net/Manage/Node). This also usually results in your node getting repeated work to download and verify the same episode because you are an outlier with the existing and presumed correct data.
 
 Size mismatches can occur by ANY of the following:
 
 - different requesting User-Agents
 - different requesting IPs
 - different requesting locations
+- the actual file has changed
+- Hosts deciding to deliver different data to you for unknown other reasons
