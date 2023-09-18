@@ -32,3 +32,5 @@ Size mismatches can occur by ANY of the following:
 - different requesting locations
 - the actual file has changed
 - Hosts deciding to deliver different data to you for unknown other reasons
+
+Yeah, you're pretty much out of luck when this happens and it limits the ability of this whole thing to work as intended. joy...
