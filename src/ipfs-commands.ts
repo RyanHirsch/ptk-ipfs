@@ -26,8 +26,6 @@ export async function getFromPublicNode(cid: string) {
       } catch (err) {
         // retry isn't properly triggering with the native exception being thrown for some reason.
         // likely due to some of the weird issues around bundled undici versions and node
-        console.error(err && typeof err === "object" && "cause" in err ? err.cause : err);
-        console.error("Manual throw", count);
         throw new Error("Generic");
       }
     },
