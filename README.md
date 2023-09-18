@@ -1,6 +1,6 @@
 # Podcast Toolkit IPFS Client
 
-Exploration around using the RPC API for controlling an IPFS server rather than [the standard client](https://github.com/Cameron-IPFSPodcasting/podcastnode-Python) (Python + CLI) originally developed by
+Exploration around using the RPC API for controlling an [IPFS Podcasting](https://ipfspodcasting.net) node rather than [the standard client](https://github.com/Cameron-IPFSPodcasting/podcastnode-Python) (Python + CLI) originally developed by
 [Cameron](https://github.com/Cameron-IPFSPodcasting)
 
 This code expects to be running on Node v20.7 or higher
@@ -23,7 +23,7 @@ docker run -it --rm --name ipfs_host \
 
 ## Known Issues
 
-DAI is terrible, and yields different results so the sizes you obtain may not be what ipfspodcasting thinks is proper.
+DAI is terrible, and yields different results so the sizes you obtain may not be what ipfspodcasting thinks is proper. When this happens you'll see a "Fail" near your nodes current status in the [management console](https://ipfspodcasting.net/Manage/Node)
 
 Size mismatches can occur by ANY of the following:
 
