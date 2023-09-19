@@ -80,13 +80,21 @@ type ErrorResponse = {
   error: string;
   errorMessage?: string;
 };
-type WorkResponse = DownloadResponse | ErrorResponse | DeleteResponse | PinResponse;
-export async function sendResponse(response: WorkResponse) {
-  logger.debug(response, "Sending results to server");
+export type WorkResponse = DownloadResponse | ErrorResponse | DeleteResponse | PinResponse;
+export async function sendResponse(response: WorkResponse | Array<WorkResponse>) {
+  const aggregatedResponse = Array.isArray(response)
+    ? response.reduce(
+        (agg, curr) => {
+          return { ...agg, ...curr };
+        },
+        {} satisfies Record<string, number | string>
+      )
+    : response;
+  logger.debug(aggregatedResponse, "Sending results to server");
   const { RepoSize } = await getUsed();
   const body = {
     ...(await getIdAndMetadata()),
-    ...response,
+    ...aggregatedResponse,
     used: RepoSize,
     avail: 50 * 1024 * 1024 * 1024,
   };
